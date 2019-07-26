@@ -3,9 +3,12 @@
 import numpy as np
 import random
 
-from .utils.gradcheck import gradcheck_naive
-from .utils.utils import normalizeRows, softmax
+from utils.gradcheck import gradcheck_naive
+from utils.utils import normalizeRows, softmax
 
+"""
+一下向量皆为行向量，所以编码的具体形式和公式推导里有些不一样
+"""
 
 def sigmoid(x):
     """
@@ -17,7 +20,7 @@ def sigmoid(x):
     """
 
     ### YOUR CODE HERE
-    s = 1 / (1 + np.exp(x))
+    s = 1 / (1 + np.exp(-x))
     ### END YOUR CODE
 
     return s
@@ -59,11 +62,11 @@ def naiveSoftmaxLossAndGradient(
     ### to integer overflow.
 
     y_hat = softmax(centerWordVec @ outsideVectors.T)
-    loss = - np.log(y_hat)
+    loss = - np.log(y_hat[outsideWordIdx])
     y = np.zeros_like(y_hat)
     y[outsideWordIdx] = 1
     gradCenterVec = (y_hat - y) @ outsideVectors
-    gradOutsideVecs = (y_hat - y).T @ centerWordVec
+    gradOutsideVecs = (y_hat - y).reshape(-1, 1) @ centerWordVec.reshape(1, -1)
 
     ### END YOUR CODE
 
@@ -106,16 +109,23 @@ def negSamplingLossAndGradient(
     # Negative sampling of words is done for you. Do not modify this if you
     # wish to match the autograder and receive points!
     negSampleWordIndices = getNegativeSamples(outsideWordIdx, dataset, K)
-    indices = [outsideWordIdx] + negSampleWordIndices
+    # indices = [outsideWordIdx] + negSampleWordIndices
 
     ### YOUR CODE HERE
     ### Please use your implementation of sigmoid in here.
-    
-    uv_oc = sigmoid(outsideVectors[[outsideWordIdx], :] @ centerWordVec.T) # (1, 1)
+
+    uv_oc = sigmoid((outsideVectors[outsideWordIdx, :] * centerWordVec).sum()) # (1, 1)
     uv_kc = sigmoid(- centerWordVec @ outsideVectors[negSampleWordIndices, :].T)  # (1, k)
     loss = - np.log(uv_oc) - np.sum(np.log(uv_kc))
-    gradCenterVec = (1 - uv_kc) @ outsideVectors[negSampleWordIndices, :] - (1 - uv_oc) * centerWordVec
-    gradOutsideVecs = (uv_oc - 1) * centerWordVec
+    gradCenterVec = (1 - uv_kc) @ outsideVectors[negSampleWordIndices, :] - (1 - uv_oc) * outsideVectors[outsideWordIdx]
+    gradOutsideVecs = np.zeros_like(outsideVectors)
+    gradOutsideVecs[outsideWordIdx] = (uv_oc - 1) * centerWordVec # 更新 outside word 的梯度
+    # 由于负采样可能会把一些单词重复采出，所以梯度需要累加而下面这种方式只保留了最后一次的梯度，所以必须以循环的方式计算
+    # gradOutsideVecs[negSampleWordIndices] = (1 - uv_kc).reshape(-1, 1) @ centerWordVec.reshape(1, -1)
+    gradOutside = (1 - uv_kc).reshape(-1, 1) @ centerWordVec.reshape(1, -1)
+    # 更新负采样中单词向量的梯度
+    for i, idx in enumerate(negSampleWordIndices):
+        gradOutsideVecs[idx] += gradOutside[i]
 
     ### END YOUR CODE
 
@@ -158,6 +168,18 @@ def skipgram(currentCenterWord, windowSize, outsideWords, word2Ind,
     gradOutsideVectors = np.zeros(outsideVectors.shape)
 
     ### YOUR CODE HERE
+    ### 注意一个窗口内得到的梯度相加得到一次梯度，并不做平均
+
+    currentCenterWordInd = word2Ind[currentCenterWord]
+    centerWordVector = centerWordVectors[currentCenterWordInd]
+    for outsideWord in outsideWords:
+        outsideWordInd = word2Ind[outsideWord]
+        tmp_loss, gradCenterVec, gradOutsideVec = word2vecLossAndGradient(
+            centerWordVector, outsideWordInd, outsideVectors, dataset
+        )
+        loss += tmp_loss
+        gradCenterVecs[currentCenterWordInd, :] += gradCenterVec
+        gradOutsideVectors += gradOutsideVec
 
     ### END YOUR CODE
 

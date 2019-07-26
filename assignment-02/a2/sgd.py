@@ -30,12 +30,11 @@ def load_saved_params():
     else:
         return st, None, None
 
-
 def save_params(iter, params):
     params_file = "saved_params_%d.npy" % iter
     np.save(params_file, params)
-    with open("saved_state_%d.pickle" % iter, "wb") as f:
-        pickle.dump(random.getstate(), f)
+    # with open("saved_state_%d.pickle" % iter, "wb") as f:
+    #     pickle.dump(random.getstate(), f)
 
 
 def sgd(f, x0, step, iterations, postprocessing=None, useSaved=False,
@@ -84,9 +83,10 @@ def sgd(f, x0, step, iterations, postprocessing=None, useSaved=False,
     for iter in range(start_iter + 1, iterations + 1):
         # You might want to print the progress every few iterations.
 
-        loss = None
+        # loss = None
         ### YOUR CODE HERE
-
+        loss, grad = f(x)
+        x -= step * grad
         ### END YOUR CODE
 
         x = postprocessing(x)
@@ -110,7 +110,7 @@ def sanity_check():
     quad = lambda x: (np.sum(x ** 2), x * 2)
 
     print("Running sanity checks...")
-    t1 = sgd(quad, 0.5, 0.01, 1000, PRINT_EVERY=100)
+    t1 = sgd(quad, 0.5, 0.01, 1000, PRINT_EVERY=100, useSaved=True)
     print("test 1 result:", t1)
     assert abs(t1) <= 1e-6
 
