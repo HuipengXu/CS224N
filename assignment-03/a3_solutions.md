@@ -10,13 +10,15 @@ loss with respect to them is pretty flat will get larger updates, helping them m
 
 
 #### (b) Dropout
-1. What must $\gamma$ equal in terms of $p_{\text{drop}}$? Briefly justify your answer.
+1. What must $\gamma$ equal in terms of $p_{\text{drop}}$? Briefly justify your answer. <br>
    $$
    E_{p_{drop}}[h_{drop}]_i=p_{drop}*0+(1-d_{drop})*\gamma*h_i\\
    \gamma=\frac{1}{1-p_{drop}}
    $$
-   这个 $\gamma$ 应该是为了保持在 $dropout$ 之后激活值总和不变，减少信息损失
+   <br>
 
+   这个 $\gamma$ 应该是为了保持在 $dropout$ 之后激活值总和不变，减少信息损失
+   
 2. Dropout is used for prevent overfitting. If we apply dropout during evaluation, neurons will be disabled randomly thus network will have different output every activation. This undermines consistency.
 
 ### 2 Neural Transition-Based Dependency Parsing (42 points)
@@ -35,4 +37,26 @@ loss with respect to them is pretty flat will get larger updates, helping them m
    |             [ROOT]             |          []           |   ROOT -> parsed    |  RIGHT-ARC  |
 
 2. *2\*n* steps，一个词进去出来共两个操作 
-3. 
+
+3. f 题
+
+   1. 
+      * **Error Type**: Verb Phrase Attachment Error
+      * **Incorrect dependency**: wedding -> fearing
+      * **Correct dependency**: fearing -> I
+   2. 
+      * **Error Type**: Coordination Attachment Error
+      * **Incorrect dependency**: makes-> rescue
+      * **Correct dependency**: rush -> rescue
+   3. 
+      - **Error Type**: Prepositional Phrase Attachment Error 
+      - **Incorrect dependency**: named -> Midland
+      - **Correct dependency**: guy -> Midland
+   4. 
+      * **Error Type**: Modifier Attachment Error   
+      * **Incorrect dependency**: elements -> most  
+      * **Correct dependency**: crucial -> most
+
+
+
+参考：https://github.com/coderfirefly/cs224n-works/blob/master/a3/Assignment3.ipynb

@@ -15,6 +15,7 @@ import torch.nn.functional as F
 
 class ParserModel(nn.Module):
     """ Feedforward neural network with an embedding layer and single hidden layer.
+
     The ParserModel will predict which transition should be applied to a
     given partial parse configuration.
 
@@ -72,6 +73,11 @@ class ParserModel(nn.Module):
         ###     Xavier Init: https://pytorch.org/docs/stable/nn.html#torch.nn.init.xavier_uniform_
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#torch.nn.Dropout
 
+        self.embed_to_hidden = nn.Linear(self.embed_size*n_features, hidden_size)
+        nn.init.xavier_uniform_(self.embed_to_hidden.weight)
+        self.dropout = nn.Dropout(self.dropout_prob)
+        self.hidden_to_logits = nn.Linear(hidden_size, n_classes)
+        nn.init.xavier_uniform_(self.hidden_to_logits.weight)
 
         ### END YOUR CODE
 
@@ -104,6 +110,8 @@ class ParserModel(nn.Module):
         ###     Embedding Layer: https://pytorch.org/docs/stable/nn.html#torch.nn.Embedding
         ###     View: https://pytorch.org/docs/stable/tensors.html#torch.Tensor.view
 
+        bs = t.size()[0]
+        x = self.pretrained_embeddings.weight[t].view(bs, -1)
 
         ### END YOUR CODE
         return x
@@ -142,6 +150,11 @@ class ParserModel(nn.Module):
         ### Please see the following docs for support:
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
 
+        emb = self.embedding_lookup(t)
+        hidden = self.embed_to_hidden(emb)
+        hidden_relu = F.relu(hidden)
+        drop_out = self.dropout(hidden_relu)
+        logits = self.hidden_to_logits(drop_out)
 
         ### END YOUR CODE
         return logits
