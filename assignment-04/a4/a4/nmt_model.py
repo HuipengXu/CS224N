@@ -74,12 +74,12 @@ class NMT(nn.Module):
         ###         https://pytorch.org/docs/stable/nn.html#torch.nn.Dropout
 
         self.encoder = nn.LSTM(embed_size, hidden_size, bias=True, bidirectional=True)
-        self.decoder = nn.LSTMCell(embed_size, hidden_size, bias=True)
+        self.decoder = nn.LSTMCell(embed_size+hidden_size, hidden_size, bias=True)
         self.h_projection = nn.Linear(2*hidden_size, hidden_size, bias=False)
         self.c_projection = nn.Linear(2*hidden_size, hidden_size, bias=False)
         self.att_projection = nn.Linear(2*hidden_size, hidden_size, bias=False)
-        self.combined_output_projection = nn.Linear(hidden_size, 3*hidden_size, bias=False)
-        self.target_vocab_projection = nn.Linear(len(vocab.tgt), hidden_size, bias=False)
+        self.combined_output_projection = nn.Linear(3*hidden_size, hidden_size, bias=False)
+        self.target_vocab_projection = nn.Linear(hidden_size, len(vocab.tgt), bias=False)
         self.dropout = nn.Dropout(p=dropout_rate)
 
         ### END YOUR CODE
@@ -252,10 +252,10 @@ class NMT(nn.Module):
 
         enc_hiddens_proj = self.att_projection(enc_hiddens)
         Y = self.model_embeddings.target.weight[target_padded]
-        # TODO  torch.split 用法不对，返回类型不明
-        for y_t in torch.split(Y, split_size_or_sections=target_padded.size()[0]):
+        # torch.split 用法有点坑，第二个参数如果是整数则是表示每一个 chunk 的尺寸
+        # 而不是被分成了几个 chunk，当是列表的时候则被指定了每一个 chunk 的尺寸
+        for y_t in torch.split(Y, split_size_or_sections=1):
             y_t.squeeze_()
-            print(y_t.size())
             y_bar_t = torch.cat([y_t, o_prev], dim=1)
             dec_state, combined_output, _ = self.step(
                 y_bar_t, dec_state, enc_hiddens, enc_hiddens_proj, enc_masks
@@ -321,6 +321,8 @@ class NMT(nn.Module):
         ###     Tensor Squeeze:
         ###         https://pytorch.org/docs/stable/torch.html#torch.squeeze
 
+        dec_hidden, dec_cell = dec_state = self.decoder(Ybar_t, dec_state)
+        e_t = torch.squeeze(enc_hiddens_proj @ torch.unsqueeze(dec_hidden, dim=2), dim=2)
 
         ### END YOUR CODE
 
@@ -333,7 +335,7 @@ class NMT(nn.Module):
         ###     1. Apply softmax to e_t to yield alpha_t
         ###     2. Use batched matrix multiplication between alpha_t and enc_hiddens to obtain the
         ###         attention output vector, a_t.
-        #$$     Hints:
+        ###     Hints:
         ###           - alpha_t is shape (b, src_len)
         ###           - enc_hiddens is shape (b, src_len, 2h)
         ###           - a_t should be shape (b, 2h)
@@ -356,6 +358,11 @@ class NMT(nn.Module):
         ###     Tanh:
         ###         https://pytorch.org/docs/stable/torch.html#torch.tanh
 
+        alpha_t = F.softmax(e_t, dim=1)
+        a_t = torch.squeeze(torch.unsqueeze(alpha_t, dim=1) @ enc_hiddens, dim=1)
+        U_t = torch.cat([a_t, dec_hidden], dim=1)
+        V_t = self.combined_output_projection(U_t)
+        O_t = self.dropout(torch.tanh(V_t))
 
         ### END YOUR CODE
 
