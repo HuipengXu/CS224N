@@ -11,16 +11,22 @@ Michael Hahn <mhahn2@stanford.edu>
 """
 
 import torch.nn as nn
-
+import torch
 # Do not change these imports; your module names should be
 #   `CNN` in the file `cnn.py`
 #   `Highway` in the file `highway.py`
 # Uncomment the following two imports once you're ready to run part 1(j)
 
-# from cnn import CNN
-# from highway import Highway
+from cnn import CNN
+from highway import HighWay
+from utils import LOGLEVEL
 
-# End "do not change" 
+# End "do not change"
+
+import logging
+
+logging.basicConfig(level=LOGLEVEL, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class ModelEmbeddings(nn.Module): 
     """
@@ -41,6 +47,10 @@ class ModelEmbeddings(nn.Module):
 
         ### YOUR CODE HERE for part 1j
 
+        self.embed_size = embed_size
+        pad_token_ind = vocab.char2id['<pad>']
+        self.char_embedding = nn.Embedding(len(vocab.char2id), 50, padding_idx=pad_token_ind)
+        self.dropout = nn.Dropout(p=0.3)
 
         ### END YOUR CODE
 
@@ -60,6 +70,19 @@ class ModelEmbeddings(nn.Module):
 
         ### YOUR CODE HERE for part 1j
 
+        char_embedding = self.char_embedding(input)  # (sentence_length, bs, max_word_length, e_char=50)
+        sentences = []
+        cnn = CNN(50, self.embed_size, char_embedding.size()[2])
+        highway = HighWay(self.embed_size)
+        for sent in char_embedding:
+            x_convout = cnn(sent.transpose(1, 2))
+            logger.debug('the shape of x convout is: {shape}'.format(shape=x_convout.size()))
+            x_highway = highway(x_convout)
+            logger.debug('the shape of x highway is: {shape}'.format(shape=x_highway.size()))
+            x_word_emb = self.dropout(x_highway)
+            logger.debug('the shape of x word_emb is: {shape}'.format(shape=x_word_emb.size()))
+            sentences.append(x_word_emb)
+        return torch.stack(sentences)
 
         ### END YOUR CODE
 

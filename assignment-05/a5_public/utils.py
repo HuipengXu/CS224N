@@ -16,6 +16,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import logging
+LOGLEVEL = logging.INFO
+
 def pad_sents_char(sents, char_pad_token):
     """ Pad list of sentences according to the longest sentence in the batch and max_word_length.
     @param sents (list[list[list[int]]]): list of sentences, result of `words2charindices()`
@@ -42,20 +45,20 @@ def pad_sents_char(sents, char_pad_token):
     ###     padding and unknown words.
     max_sent_len = max(map(len, sents))
     sents_padded = []
+    word_padded = [char_pad_token] * max_word_length
 
     for sent in sents:
-        tmp_sent = sent.copy()
+        tmp_sent = []
+
+        for word in sent:
+            if len(word) <= max_word_length:
+                tmp_sent.append(word + [char_pad_token] * (max_word_length - len(word)))
+            else:
+                tmp_sent.append(word[:max_word_length])
 
         tmp_sent.extend(
-            [[char_pad_token] * max_word_length for _ in range(max_sent_len - len(sent))]
+            [word_padded for _ in range(max_sent_len - len(sent))]
         )
-
-        for i in range(len(sent)):
-            if len(sent[i]) <= max_word_length:
-                tmp_sent[i] += [char_pad_token] * (max_word_length - len(sent[i]))
-            else:
-                tmp_sent[i] = sent[i][:max_word_length]
-
         sents_padded.append(tmp_sent)
     ### END YOUR CODE
 
@@ -72,10 +75,12 @@ def pad_sents(sents, pad_token):
         each sentences in the batch now has equal length.
         Output shape: (batch_size, max_sentence_length)
     """
-    sents_padded = []
+    # sents_padded = []
 
     ### COPY OVER YOUR CODE FROM ASSIGNMENT 4
 
+    max_len = len(max(sents, key=len))
+    sents_padded = [sent.copy() + [pad_token] * (max_len - len(sent)) for sent in sents]
 
     ### END YOUR CODE FROM ASSIGNMENT 4
 
