@@ -105,24 +105,28 @@ class NMT(nn.Module):
         ###     - Add `target_padded_chars` for character level padded encodings for target
         ###     - Modify calls to encode() and decode() to use the character level encodings
 
-        target_padded = self.vocab.tgt.to_input_tensor(target, device=self.device)
-        source_padded_chars = self.vocab.src.to_input_tensor_char(source, device=self.device)
+        target_padded = self.vocab.tgt.to_input_tensor(target, device=self.device) # (max_sentence_length, bs)
+        source_padded_chars = self.vocab.src.to_input_tensor_char(source, device=self.device) # (max_sentence_length, batch_size, max_word_length)
         target_padded_chars = self.vocab.tgt.to_input_tensor_char(target, device=self.device)
 
         enc_hiddens, dec_init_state = self.encode(source_padded_chars, source_lengths)
         enc_masks = self.generate_sent_masks(enc_hiddens, source_lengths)
-        combined_outputs = self.decode(enc_hiddens, enc_masks, dec_init_state, target_padded_chars)
+        combined_outputs = self.decode(enc_hiddens, enc_masks, dec_init_state, target_padded_chars) # (tgt_len, b,  h)
 
         ### END YOUR CODE
 
-        P = F.log_softmax(self.target_vocab_projection(combined_outputs), dim=-1)
+        P = F.log_softmax(self.target_vocab_projection(combined_outputs), dim=-1) # (tgt_len, b, vocab)
+        logger.debug('the shape of P is: {shape}'.format(shape=P.size()))
 
         # Zero out, probabilities for which we have nothing in the target text
         target_masks = (target_padded != self.vocab.tgt['<pad>']).float()
 
-        # Compute log probability of generating true target words
+        # Compute log probability of generating true target words ->target_padded[1:].unsqueeze(-1) (max_sentence_length, bs, 1)
+        logger.debug('the shape of target padded unsqueeze is: {shape}'.format(shape=target_padded[1:].unsqueeze(-1).size()))
+        # 这一步 首先去掉 start token，index 的作用是根据正确的索引挑选出 P 对应的概率
         target_gold_words_log_prob = torch.gather(P, index=target_padded[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:]
         scores = target_gold_words_log_prob.sum() # mhahn2 Small modification from A4 code.
+        logger.debug('the shape of target padded unsqueeze is: {shape}'.format(shape=target_padded[1:].unsqueeze(-1).size()))
 
 
 
@@ -159,7 +163,7 @@ class NMT(nn.Module):
         ### Except replace "self.model_embeddings.source" with "self.model_embeddings_source"
 
         logger.debug('shape of source padded is: {shape}'.format(shape=source_padded.size()))
-        X = self.model_embeddings_source(source_padded)
+        X = self.model_embeddings_source(source_padded) # (src_len, b, embed_size)
         logger.debug('shape of X after embedding is: {shape}'.format(shape=X.size()))
         logger.debug('source length is: {src_len}'.format(src_len=source_lengths))
         X = pack_padded_sequence(X, source_lengths)
@@ -205,6 +209,7 @@ class NMT(nn.Module):
         ### COPY OVER YOUR CODE FROM ASSIGNMENT 4
         ### Except replace "self.model_embeddings.target" with "self.model_embeddings_target"
 
+        # TODO 一步解码，注意masks的用法，交叉熵损失有问题
         enc_hiddens_proj = self.att_projection(enc_hiddens)
         Y = self.model_embeddings_target(target_padded)
         for y_t in torch.split(Y, split_size_or_sections=1):

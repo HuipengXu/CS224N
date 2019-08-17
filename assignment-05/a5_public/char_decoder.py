@@ -59,7 +59,7 @@ class CharDecoder(nn.Module):
         ### TODO - Implement the forward pass of the character decoder.
         X = self.decoderCharEmb(input) # (word_length, batch, char_emb)
         h_t, dec_hidden = self.charDecoder(X, dec_hidden)
-        scores = self.char_output_projection(h_t) # h_t (word_length, batch, hidden_size)
+        scores = self.char_output_projection(h_t) # h_t (word_length, batch, hidden_size) scores (word_length, batch, vocab_size)
         return scores, dec_hidden
         ### END YOUR CODE 
 
@@ -78,8 +78,8 @@ class CharDecoder(nn.Module):
         ### Hint: - Make sure padding characters do not contribute to the cross-entropy loss.
         ###       - char_sequence corresponds to the sequence x_1 ... x_{n+1} from the handout (e.g., <START>,m,u,s,i,c,<END>).
         scores, dec_hidden = self.forward(char_sequence[:-1], dec_hidden)
-        p_t = F.softmax(scores, dim=2) # (length, batch, self.vocab_size)
-        loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx, reduction='sum')(p_t.permute(1, 2, 0), char_sequence[1:].t())
+        # p_t = F.softmax(scores, dim=2) # (length, batch, self.vocab_size) # cross_entropy 中执行了 softmax
+        loss = nn.CrossEntropyLoss(ignore_index=self.padding_idx, reduction='sum')(scores.permute(1, 2, 0), char_sequence[1:].t())
         logger.debug('the shape of loss is: {shape}'.format(shape=loss))
         return loss
         ### END YOUR CODE
@@ -101,9 +101,9 @@ class CharDecoder(nn.Module):
         ###      - Use torch.tensor(..., device=device) to turn a list of character indices into a tensor.
         ###      - We use curly brackets as start-of-word and end-of-word characters. That is, use the character '{' for <START> and '}' for <END>.
         ###        Their indices are self.target_vocab.start_of_word and self.target_vocab.end_of_word, respectively.
-        output_words_id = []
+        output_words_idx = []
         # 初始化 batch 个 start
-        current_char = torch.zeros(1, initialStates[0].size()[1], dtype=torch.int64, device=device) # (1, batch)
+        current_char = torch.zeros(1, initialStates[0].size(1), dtype=torch.int64, device=device) # (1, batch)
         current_char.fill_(self.target_vocab.start_of_word)
         logger.debug('dtype of current char is: {dtype}'.format(dtype=current_char.dtype))
         dec_hidden = initialStates
@@ -113,11 +113,11 @@ class CharDecoder(nn.Module):
             scores, dec_hidden = self.forward(current_char, dec_hidden)
             p_t = F.softmax(scores, dim=2)
             current_char = p_t.argmax(dim=2)
-            output_words_id.append(current_char.squeeze(0).tolist())
+            output_words_idx.append(current_char.squeeze(0).tolist())
 
         # 将索引转换为字符并拼接成单词
         output_words = []
-        for words_idx in zip(*output_words_id):
+        for words_idx in zip(*output_words_idx):
             tmp = []
             for i in words_idx:
                 if i == self.target_vocab.end_of_word: break

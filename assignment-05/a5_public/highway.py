@@ -24,7 +24,6 @@ class HighWay(nn.Module):
     def __init__(self, e_word:int):
         """
         :param e_word: dimension of word embedding
-        :param dropout_rate: Dropout Probability, for X_highway
         """
         super(HighWay, self).__init__()
         self.proj = nn.Linear(e_word, e_word)

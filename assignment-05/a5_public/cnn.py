@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class CNN(nn.Module):
 
-    def __init__(self, e_char:int, e_word:int, m_word:int, kernel_size:int=5):
+    def __init__(self, e_word:int, e_char:int=50, m_word:int=21, kernel_size:int=5):
         """
         :param e_char: character embedding size
         :param e_word: the size of the final word embedding
