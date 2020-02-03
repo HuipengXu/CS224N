@@ -53,7 +53,7 @@ class VocabEntry(object):
         self.char2id['{'] = 1
         self.char2id['}'] = 2
         self.char2id['<unk>'] = 3
-        for i, c in enumerate(self.char_list):
+        for _, c in enumerate(self.char_list):
             self.char2id[c] = len(self.char2id)
         self.char_unk = self.char2id['<unk>']
         self.start_of_word = self.char2id["{"]

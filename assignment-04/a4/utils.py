@@ -41,7 +41,7 @@ def pad_sents(sents, pad_token):
 
 
 def read_corpus(file_path, source):
-    """ Read file, where each sentence is dilineated by a `\n`.
+    """ Read file, where each sentence is delineated by a `\n`.
     @param file_path (str): path to file containing corpus
     @param source (str): "tgt" or "src" indicating whether text
         is of the source language or target language

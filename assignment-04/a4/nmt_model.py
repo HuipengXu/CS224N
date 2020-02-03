@@ -113,14 +113,14 @@ class NMT(nn.Module):
         enc_hiddens, dec_init_state = self.encode(source_padded, source_lengths)
         enc_masks = self.generate_sent_masks(enc_hiddens, source_lengths)
         combined_outputs = self.decode(enc_hiddens, enc_masks, dec_init_state, target_padded)
-        P = F.log_softmax(self.target_vocab_projection(combined_outputs), dim=-1)
+        P = F.log_softmax(self.target_vocab_projection(combined_outputs), dim=-1) # （bs, len, vocab）
 
         # Zero out, probabilities for which we have nothing in the target text
         target_masks = (target_padded != self.vocab.tgt['<pad>']).float()
         
         # Compute log probability of generating true target words
-        target_gold_words_log_prob = torch.gather(P, index=target_padded[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:]
-        scores = target_gold_words_log_prob.sum(dim=0)
+        target_gold_words_log_prob = torch.gather(P, index=target_padded[1:].unsqueeze(-1), dim=-1).squeeze(-1) * target_masks[1:] # (bs, len)
+        scores = target_gold_words_log_prob.sum(dim=0) # (len, )
         return scores
 
 
@@ -396,8 +396,8 @@ class NMT(nn.Module):
         """
         src_sents_var = self.vocab.src.to_input_tensor([src_sent], self.device)
 
-        src_encodings, dec_init_vec = self.encode(src_sents_var, [len(src_sent)])
-        src_encodings_att_linear = self.att_projection(src_encodings)
+        src_encodings, dec_init_vec = self.encode(src_sents_var, [len(src_sent)]) # 1, len, 2*hidden
+        src_encodings_att_linear = self.att_projection(src_encodings)   # 1, len, hidden
 
         h_tm1 = dec_init_vec
         att_tm1 = torch.zeros(1, self.hidden_size, device=self.device)
@@ -433,11 +433,12 @@ class NMT(nn.Module):
             log_p_t = F.log_softmax(self.target_vocab_projection(att_t), dim=-1)
 
             live_hyp_num = beam_size - len(completed_hypotheses)
+            # hyp_scores.shape = (bs, ) => (bs, vocab) => (bs*vocab, ) => (v1, v2, ... , vn)
             contiuating_hyp_scores = (hyp_scores.unsqueeze(1).expand_as(log_p_t) + log_p_t).view(-1)
             top_cand_hyp_scores, top_cand_hyp_pos = torch.topk(contiuating_hyp_scores, k=live_hyp_num)
 
-            prev_hyp_ids = top_cand_hyp_pos / len(self.vocab.tgt)
-            hyp_word_ids = top_cand_hyp_pos % len(self.vocab.tgt)
+            prev_hyp_ids = top_cand_hyp_pos / len(self.vocab.tgt) # 较大的属于哪个batch即哪个 hypothesis
+            hyp_word_ids = top_cand_hyp_pos % len(self.vocab.tgt) # 具体的在所属的那个batch的中的位置
 
             new_hypotheses = []
             live_hyp_ids = []
